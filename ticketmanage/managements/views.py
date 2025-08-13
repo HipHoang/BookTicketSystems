@@ -1,11 +1,11 @@
 from rest_framework import viewsets, generics, status
-from .serializers import *
+from managements.serializers import *
 from managements import paginators
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from .paginators import Pagination
-from .perms import *
+from managements.paginators import Pagination
+from managements.perms import *
 from rest_framework.parsers import MultiPartParser, JSONParser
 
 class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
