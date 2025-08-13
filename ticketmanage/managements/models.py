@@ -1,3 +1,4 @@
+from django.contrib.auth.hashers import make_password
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from ckeditor.fields import RichTextField
@@ -5,10 +6,6 @@ from cloudinary.models import CloudinaryField
 from enum import IntEnum
 from django.utils import timezone
 
-
-# -------------------------
-# Base model
-# -------------------------
 class BaseModel(models.Model):
     created_date = models.DateField(auto_now_add=True, null=True)
     updated_date = models.DateField(auto_now=True, null=True)
@@ -18,10 +15,6 @@ class BaseModel(models.Model):
         abstract = True
         ordering = ['-id']
 
-
-# -------------------------
-# Role Enum
-# -------------------------
 class Role(IntEnum):
     Admin = 0
     Passenger = 1
@@ -32,10 +25,6 @@ class Role(IntEnum):
     def choices(cls):
         return [(role.value, role.name.capitalize()) for role in cls]
 
-
-# -------------------------
-# User
-# -------------------------
 class User(AbstractUser):
     avatar = CloudinaryField('avatar', null=True, blank=True, folder='avatar', default='')
     email = models.EmailField(unique=True, null=False, max_length=255)
@@ -46,6 +35,11 @@ class User(AbstractUser):
         ('female', 'Female'),
         ('other', 'Other')
     ), null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.password.startswith('pbkdf2_'):
+            self.password = make_password(self.password)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.username
@@ -59,14 +53,11 @@ class Company(BaseModel):
     address = models.CharField(max_length=300, null=True, blank=True)
     phone = models.CharField(max_length=30, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
-
+    description = RichTextField(blank=True, null=True)
+    image = CloudinaryField('company_image', null=True, blank=True, folder='company', default='')
     def __str__(self):
         return self.name
 
-
-# -------------------------
-# Bus
-# -------------------------
 class Bus(BaseModel):
     STATUS_CHOICES = (
         ('active', 'Active'),
@@ -78,15 +69,11 @@ class Bus(BaseModel):
     license_plate = models.CharField(max_length=50, unique=True)
     capacity = models.PositiveSmallIntegerField(default=45)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
-    image = CloudinaryField('bus_image', null=True, blank=True)
+    image = CloudinaryField('bus_image', null=True, blank=True, folder='bus', default='')
 
     def __str__(self):
         return f"{self.license_plate} ({self.capacity} seats)"
 
-
-# -------------------------
-# Route & Stops
-# -------------------------
 class Route(BaseModel):
     start_location = models.CharField(max_length=200)
     end_location = models.CharField(max_length=200)
@@ -95,7 +82,6 @@ class Route(BaseModel):
 
     def __str__(self):
         return f"{self.start_location} → {self.end_location}"
-
 
 class Stop(BaseModel):
     route = models.ForeignKey(Route, on_delete=models.SET_NULL, null=True, blank=True, related_name='stops')
@@ -168,6 +154,7 @@ class Reservation(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reservations')
     schedule = models.ForeignKey(Schedule, on_delete=models.RESTRICT, related_name='reservations')
     booking_code = models.CharField(max_length=50, unique=True)
+    booking_date = models.DateTimeField(default=timezone.now)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     note = models.CharField(max_length=500, null=True, blank=True)
@@ -209,6 +196,7 @@ class Payment(BaseModel):
     reservation = models.ForeignKey(Reservation, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_method = models.CharField(max_length=30, choices=METHOD_CHOICES, default='bank_transfer')
+    payment_time = models.DateTimeField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
@@ -335,3 +323,12 @@ class AgentSale(BaseModel):
 
     def __str__(self):
         return f"{self.agent.name} - {self.reservation.booking_code}"
+
+class ChatMessage(BaseModel):
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
+    message = models.TextField()
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.sender} -> {self.receiver}: {self.message[:30]}"
