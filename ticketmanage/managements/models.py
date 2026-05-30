@@ -1,10 +1,12 @@
-from django.contrib.auth.hashers import make_password
-from django.db import models
-from django.contrib.auth.models import AbstractUser
+from enum import IntEnum
+
 from ckeditor.fields import RichTextField
 from cloudinary.models import CloudinaryField
-from enum import IntEnum
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import AbstractUser
+from django.db import models
 from django.utils import timezone
+
 
 class BaseModel(models.Model):
     created_date = models.DateField(auto_now_add=True, null=True)
@@ -15,6 +17,7 @@ class BaseModel(models.Model):
         abstract = True
         ordering = ['-id']
 
+
 class Role(IntEnum):
     Admin = 0
     Passenger = 1
@@ -24,6 +27,7 @@ class Role(IntEnum):
     @classmethod
     def choices(cls):
         return [(role.value, role.name.capitalize()) for role in cls]
+
 
 class User(AbstractUser):
     avatar = CloudinaryField('avatar', null=True, blank=True, folder='avatar', default='')
@@ -54,9 +58,13 @@ class Company(BaseModel):
     phone = models.CharField(max_length=30, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     description = RichTextField(blank=True, null=True)
+    owner = models.ForeignKey('User', on_delete=models.CASCADE, related_name="companies")
+    approved = models.BooleanField(default=False)
     image = CloudinaryField('company_image', null=True, blank=True, folder='company', default='')
+
     def __str__(self):
         return self.name
+
 
 class Bus(BaseModel):
     STATUS_CHOICES = (
@@ -67,12 +75,13 @@ class Bus(BaseModel):
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='buses')
     license_plate = models.CharField(max_length=50, unique=True)
-    capacity = models.PositiveSmallIntegerField(default=45)
+    capacity = models.PositiveSmallIntegerField(default=42)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     image = CloudinaryField('bus_image', null=True, blank=True, folder='bus', default='')
 
     def __str__(self):
         return f"{self.license_plate} ({self.capacity} seats)"
+
 
 class Route(BaseModel):
     start_location = models.CharField(max_length=200)
@@ -82,6 +91,7 @@ class Route(BaseModel):
 
     def __str__(self):
         return f"{self.start_location} → {self.end_location}"
+
 
 class Stop(BaseModel):
     route = models.ForeignKey(Route, on_delete=models.SET_NULL, null=True, blank=True, related_name='stops')
@@ -118,6 +128,14 @@ class Schedule(BaseModel):
         return f"{self.route} @ {self.departure_time}"
 
 
+class ScheduleStop(BaseModel):
+    schedule = models.ForeignKey(Schedule, on_delete=models.CASCADE, related_name='schedule_stops')
+    stop = models.ForeignKey(Stop, on_delete=models.CASCADE, related_name='schedule_stops')
+    order_in_schedule = models.PositiveSmallIntegerField()
+    pickup_only = models.BooleanField(default=False)  # chỉ đón
+    dropoff_only = models.BooleanField(default=False)  # chỉ trả
+
+
 # -------------------------
 # Seat
 # -------------------------
@@ -143,6 +161,9 @@ class Seat(BaseModel):
 # -------------------------
 # Reservation & Details
 # -------------------------
+# -------------------------
+# Reservation & Details
+# -------------------------
 class Reservation(BaseModel):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -151,13 +172,18 @@ class Reservation(BaseModel):
         ('completed', 'Completed'),
     )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reservations')
+    # Cho phép null nếu khách không đăng nhập
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reservations', null=True, blank=True)
     schedule = models.ForeignKey(Schedule, on_delete=models.RESTRICT, related_name='reservations')
     booking_code = models.CharField(max_length=50, unique=True)
     booking_date = models.DateTimeField(default=timezone.now)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     note = models.CharField(max_length=500, null=True, blank=True)
+
+    # 👇 Thông tin người đặt (nếu không đăng nhập)
+    contact_name = models.CharField(max_length=200, null=True, blank=True)
+    contact_phone = models.CharField(max_length=30, null=True, blank=True)
 
     def __str__(self):
         return self.booking_code
@@ -168,6 +194,7 @@ class ReservationDetail(BaseModel):
     seat = models.ForeignKey(Seat, on_delete=models.RESTRICT, related_name='reservation_details')
     passenger_name = models.CharField(max_length=200, null=True, blank=True)
     passenger_phone = models.CharField(max_length=30, null=True, blank=True)
+    passenger_email = models.EmailField(null=True, blank=True)
 
     class Meta:
         unique_together = ('seat',)
@@ -182,9 +209,7 @@ class ReservationDetail(BaseModel):
 class Payment(BaseModel):
     METHOD_CHOICES = (
         ('cash', 'Cash'),
-        ('bank_transfer', 'Bank transfer'),
         ('momo', 'MoMo'),
-        ('credit_card', 'Credit Card'),
     )
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -195,9 +220,14 @@ class Payment(BaseModel):
 
     reservation = models.ForeignKey(Reservation, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    payment_method = models.CharField(max_length=30, choices=METHOD_CHOICES, default='bank_transfer')
+    payment_method = models.CharField(max_length=30, choices=METHOD_CHOICES, default='cash')
     payment_time = models.DateTimeField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    # 👇 Thêm trường để hỗ trợ MoMo sandbox
+    transaction_id = models.CharField(max_length=100, null=True, blank=True)  # orderId từ MoMo
+    momo_request_id = models.CharField(max_length=100, null=True, blank=True)
+    momo_extra_data = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.reservation.booking_code} - {self.status}"
@@ -323,6 +353,7 @@ class AgentSale(BaseModel):
 
     def __str__(self):
         return f"{self.agent.name} - {self.reservation.booking_code}"
+
 
 class ChatMessage(BaseModel):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')

@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from rest_framework.serializers import *
+
 from managements.models import *
+
 
 class UserSerializer(ModelSerializer):
     confirm_password = serializers.CharField(write_only=True, required=True)
@@ -19,20 +21,22 @@ class UserSerializer(ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('confirm_password')  # Xoá confirm_password trước khi lưu
         u = User(**validated_data)
-        u.role = validated_data.get('role', 0) # mặc định
+        u.role = validated_data.get('role', 1)  # mặc định
         u.set_password(validated_data['password'])  # mã hoá mật khẩu
         u.save()
         return u
 
     class Meta:
         model = User
-        fields = ["id", "username", "password", "confirm_password", "avatar", "avatar_url", "first_name", "last_name", "email", "role"]
+        fields = ["id", "username", "password", "confirm_password", "avatar", "avatar_url", "first_name", "last_name",
+                  "email", "phone", "gender", "role"]
         extra_kwargs = {
             'password': {
                 'write_only': True,
                 'required': False
             }
         }
+
 
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True, required=True)
@@ -50,6 +54,7 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError("Mật khẩu mới và mật khẩu xác nhận không khớp.")
         return attrs
 
+
 class CompanySerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
 
@@ -61,6 +66,7 @@ class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
         fields = "__all__"
+        read_only_fields = ['approved', 'owner']
 
 
 class BusSerializer(serializers.ModelSerializer):
@@ -88,6 +94,7 @@ class RouteSerializer(serializers.ModelSerializer):
 
 class StopSerializer(serializers.ModelSerializer):
     route = RouteSerializer(read_only=True)
+
     class Meta:
         model = Stop
         fields = "__all__"
@@ -99,31 +106,38 @@ class StopSerializer(serializers.ModelSerializer):
 class ScheduleSerializer(serializers.ModelSerializer):
     bus = BusSerializer(read_only=True)
     route = RouteSerializer(read_only=True)
+
     class Meta:
         model = Schedule
         fields = "__all__"
 
 
 class SeatSerializer(serializers.ModelSerializer):
-    schedule = ScheduleSerializer(read_only=True)
+
     class Meta:
         model = Seat
+        fields = ["id", "seat_number", "status"]
+
+
+# -------------------------
+# Reservation Detail
+# -------------------------
+class ReservationDetailSerializer(serializers.ModelSerializer):
+    seat = SeatSerializer(read_only=True)
+    seat_id = serializers.IntegerField(write_only=True)  # 👈 cho phép POST seat_id
+
+    class Meta:
+        model = ReservationDetail
         fields = "__all__"
 
 
 # -------------------------
 # Reservation
 # -------------------------
-class ReservationDetailSerializer(serializers.ModelSerializer):
-    seat = SeatSerializer(read_only=True)
-    class Meta:
-        model = ReservationDetail
-        fields = "__all__"
-
-
 class ReservationSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     schedule = ScheduleSerializer(read_only=True)
+    schedule_id = serializers.IntegerField(write_only=True)  # 👈 cho phép POST schedule_id
     details = ReservationDetailSerializer(many=True, read_only=True)
 
     class Meta:
@@ -136,11 +150,11 @@ class ReservationSerializer(serializers.ModelSerializer):
 # -------------------------
 class PaymentSerializer(serializers.ModelSerializer):
     reservation = ReservationSerializer(read_only=True)
+    reservation_id = serializers.IntegerField(write_only=True)  # 👈 POST bằng reservation_id
 
     class Meta:
         model = Payment
         fields = "__all__"
-
 
 # -------------------------
 # Promotion
@@ -165,6 +179,7 @@ class PromotionUsageSerializer(serializers.ModelSerializer):
 # -------------------------
 class DriverSerializer(serializers.ModelSerializer):
     company = CompanySerializer(read_only=True)
+
     class Meta:
         model = Driver
         fields = "__all__"

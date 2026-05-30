@@ -15,7 +15,6 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -26,7 +25,6 @@ SECRET_KEY = 'django-insecure-%zi&uh=-dpsk#n)bp846rl1v5^m04&+d2@=g56h^c-b-q7p6qg
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-
 
 # Application definition
 
@@ -53,9 +51,11 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 2,
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
     ],
 }
 CKEDITOR_UPLOAD_PATH = "ckeditors/lessons/"
@@ -93,7 +93,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ticketManage.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -110,6 +109,7 @@ DATABASES = {
 AUTH_USER_MODEL = 'managements.User'
 
 import pymysql
+
 pymysql.install_as_MySQLdb()
 
 import cloudinary
@@ -143,7 +143,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
@@ -154,7 +153,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
@@ -168,9 +166,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 OAUTH2_PROVIDER = {
     'SCOPES': {'read': 'Read access', 'write': 'Write access'},
-    'GRANT_TYPES': ['password', 'authorization_code', 'refresh_token', 'client_credentials'], # Đảm bảo 'password' ở đây
+    'GRANT_TYPES': ['password', 'authorization_code', 'refresh_token', 'client_credentials'],
+    # Đảm bảo 'password' ở đây
     # ... các cấu hình khác
 }
 
-CLIENT_ID = 'HttNNiVw3KIgO4mb1ofQmnOmus4eFB0x4QT99mdE'
-CLIENT_SECRET = 'pI6zIHyXzD6a245XFevEn1fwj7Ec1M1UikSTOcXxicAXZsIJOeyP6XxweRaxUngAj5YJKTx2Rj2oOASSHMQV57u1xmrJPHzc6HUxO7bvjFxr5Q3ORtRtbd0QV6ixpL2m'
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "bookticketsystem@gmail.com"
+EMAIL_HOST_PASSWORD = "pxwz rfmj pmgl kokc"
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+CLIENT_ID = 'J38IIwUMRTt5hjKQouwWBXUhocC3LkE0k7vXAI3G'
+CLIENT_SECRET = 'nL5r77CfOgL7iWtqaO49jwoo9TEiCWkY68Lxp7ebEAdLAUessgVFtoMZYgftN3dI30p8TJaHhJeUuUffayNDUfAwuyFk9CeqAGfSWd6Ow2w05vY5h7dq0cKp8dKADBM0'

@@ -8,11 +8,11 @@ class OwnerPermission(permissions.IsAuthenticated):
         # Nếu object có thuộc tính user
         return hasattr(obj, 'user') and obj.user == request.user
 
-class AdminOrCoachPermission(permissions.BasePermission):
+class AdminCompanyPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.role in [0, 3]
+        return request.user.role in [0, 2]
 
 class AdminPermission(permissions.BasePermission):
     def has_permission(self, request, view):
